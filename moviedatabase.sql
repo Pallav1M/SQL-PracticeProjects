@@ -740,5 +740,219 @@ add constraint songs_price_check check(price>=0.99);
 
 select * from songs;
 
+-- VIEWS AND DATA MANIPULATION
+-- ===========================
+
+-- Update
+-- ======
+
+update customer
+set last_name = 'Brown'
+where customer_id = 1;
+
+select * from customer
+order by customer_id asc;
+
+-- update all rental prices that are 0.99 to 1.99
+
+update film
+set rental_rate = 1.99
+where rental_rate = 0.99;
+
+select * from film;
+
+-- The customer table needs to be altered as well
+-- add the column initial  with datatype(varchar(10))
+
+alter table customer
+add column initials varchar(4);
+select * from customer;
+
+-- update the values to the actual initial - For example Frank Smith will be F.S
+
+update customer
+set initials = left(first_name, 1) || '.'|| left(last_name,1) || '.';
+select * from customer;
 
 
+-- DELETE
+-- ======
+select * from songs;
+
+To return all the values to be deleted
+
+delete from songs 
+where song_id in(3,4)
+returning *
+
+-- There have been two payments that are not correct and they need to be deleted - 17064 and 17067
+
+select * from payment
+where payment_id in(17064, 17067);
+
+delete from payment
+where payment_id in(17064, 17067)
+returning *;
+
+select * from payment
+where payment_id in(17064, 17067);
+
+-- CREATE TABLE AS
+-- ===============
+create table customer_address 
+as
+select first_name, last_name, email, address , city
+from customer c left join address a
+on c.address_id = a.address_id 
+left join city ci on a.city_id = ci.city_id;
+
+select * from customer_address;
+
+-- Create a table with the first_name and the last name in one column and the total spending. 
+
+create table customer_spending 
+as
+select first_name || ' '|| last_name as name, 
+sum(amount) as total_amount
+from customer c 
+left join payment p on 
+c.customer_id = p.customer_id 
+group by name;
+
+select * from customer_spending;
+
+-- VIEWS
+-- =====
+drop table customer_spending;
+
+select * from customer_spending;
+
+create view customer_spending 
+as
+select first_name || ' '|| last_name as name, 
+sum(amount) as total_amount
+from customer c 
+left join payment p on 
+c.customer_id = p.customer_id 
+group by name;
+
+-- Create a view called films_category that shows a list of the film titles including their title, length and category name ordered descendingly by the length.
+-- Filter the results to only the movies in the category 'Action' and 'Comedy'.
+
+create view films_category
+as
+select f.title, f.length, c.name
+from film f 
+left join film_category fc on f.film_id = fc.film_id
+left join category c on fc.category_id = c.category_id 
+where c.name in('Action','Comedy')
+order by f.length desc;
+
+-- CREATE MATERIALIZED VIEW - It will update the view if the tables from which the view is selected changes.
+-- ========================
+select f.title, f.length, c.name
+from film f 
+left join film_category fc on f.film_id = fc.film_id
+left join category c on fc.category_id = c.category_id 
+where c.name in('Action','Comedy')
+order by f.length desc;
+
+create materialized view mv_films_category
+as
+select f.title, f.length, c.name
+from film f 
+left join film_category fc on f.film_id = fc.film_id
+left join category c on fc.category_id = c.category_id 
+where c.name in('Action','Comedy')
+order by f.length desc;
+
+select * from mv_films_category;
+
+-- Lets update the view
+update film
+set length = 192
+where title = 'SATURN NAME';
+
+-- Still does not reflect the change 
+select * from mv_films_category;
+
+-- Refresh the view to see the changes 
+refresh materialized view mv_films_category;
+
+select * from mv_films_category;
+
+-- MANAGING VIEWS
+-- ==============
+
+-- ALTER VIEW AND DROP VIEWS 
+-- ALTER MVIEW AND DROP MVIEW
+
+-- create or replace view is not possible with materialized view 
+
+CREATE VIEW v_customer_info
+AS
+SELECT cu.customer_id,
+    cu.first_name || ' ' || cu.last_name AS name,
+    a.address,
+    a.postal_code,
+    a.phone,
+    city.city,
+    country.country
+     FROM customer cu
+     JOIN address a ON cu.address_id = a.address_id
+     JOIN city ON a.city_id = city.city_id
+     JOIN country ON city.country_id = country.country_id
+ORDER BY customer_id;
+
+select * from v_customer_info;
+
+-- 1) Rename the view to v_customer_information.
+
+alter view v_customer_info 
+rename to v_customer_information;
+
+-- 2) Rename the customer_id column to c_id.
+
+alter view v_customer_information
+rename column customer_id to c_id;
+
+-- 3) Add also the initial column as the third column to the view by replacing the view.
+-- CREATE OR REPLACE VIEW v_customer_information
+-- AS
+-- SELECT cu.customer_id,
+--     cu.first_name || ' ' || cu.last_name AS name,
+--     cu.initials,
+-- 	a.address,
+--     a.postal_code,
+--     a.phone,
+--     city.city,
+--     country.country
+--      FROM customer cu
+--      JOIN address a ON cu.address_id = a.address_id
+--      JOIN city ON a.city_id = city.city_id
+--      JOIN country ON city.country_id = country.country_id
+-- ORDER BY customer_id
+
+-- Import and Export
+-- =================
+
+-- Import - 
+-- Import Exernal data into an existing table
+-- Table needs to be xreated first
+-- Data needs to be in correct format
+
+CREATE TABLE sales (
+transaction_id SERIAL PRIMARY KEY,
+customer_id INT,
+payment_type VARCHAR(20),
+creditcard_no VARCHAR(20),
+cost DECIMAL(5,2),
+quantity INT,
+price DECIMAL(5,2));
+
+-- Now insert data from the csv file to sales table using the Import/Export tab - Fact_sales.csv
+
+select * from sales;
+
+-- Export - 
+-- Export Data from a table into a csv file
