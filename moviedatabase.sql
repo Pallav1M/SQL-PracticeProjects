@@ -956,3 +956,158 @@ select * from sales;
 
 -- Export - 
 -- Export Data from a table into a csv file
+
+-- WINDOW FUNCTIONS
+-- ================
+-- We can aggregate without using the group by clause. This doesn't affect the number of rows, thus retains all the details. 
+
+-- OVER() with PARTITION BY
+-- ========================
+
+select *, 
+count(*) over()
+from payment 
+order by 1;
+
+-- The following wont work since round is not a window function
+
+select *, 
+round(avg(amount)over(),2)
+from payment 
+order by 1;
+
+-- Write a query that returns the list of movies including 
+-- film_id, title, length, category, average length of movies in that category. 
+-- Order the result by film_id. 
+
+select f.film_id, 
+f.title, 
+f.length, 
+c.name, 
+round(avg(length) over(partition by (c.name) ),2) as avg
+from film f 
+left join film_category fc on f.film_id = fc.film_id 
+left join category c on fc.category_id = c.category_id
+order by f.film_id;
+
+-- Write a query that returns all the payment details including 
+-- - the number of payments that were made by this customer and that amount
+-- Order by payment_id. 
+
+select *, 
+count(*) over(partition by customer_id, amount)
+from payment
+order by payment_id;
+
+-- OVER() with ORDER BY()
+-- =====================
+
+-- To calculate the running total
+
+select *, 
+sum(amount) over(order by payment_id)
+from payment;
+
+select *, 
+sum(amount) 
+over(partition by customer_id order by payment_date, payment_id)
+from payment;
+
+-- See flight database for the challenge on this section.
+
+-- RANK()
+-- ======
+
+select f.film_id, 
+f.title, 
+f.length, 
+c.name, 
+rank() over(order by f.length desc)
+from film f 
+left join film_category fc on f.film_id = fc.film_id 
+left join category c on fc.category_id = c.category_id;
+
+-- DENSE_RANK()
+-- ======
+select f.film_id, 
+f.title, 
+f.length, 
+c.name, 
+dense_rank() over(partition by c.name order by f.length desc)
+from film f 
+left join film_category fc on f.film_id = fc.film_id 
+left join category c on fc.category_id = c.category_id;
+
+select * from 
+(select f.film_id, 
+f.title, 
+f.length, 
+c.name, 
+dense_rank() over(partition by c.name order by f.length desc) as rank 
+from film f 
+left join film_category fc on f.film_id = fc.film_id 
+left join category c on fc.category_id = c.category_id
+) a 
+where rank = 1;
+
+-- Write a query that returns the customer's name, the country, and how many payments they have. For that, use the existing view 
+-- customer_list. 
+
+select 
+name, 
+country,
+count(id) 
+from customer_list
+left join payment 
+on id = customer_id
+group by name, 
+country;
+
+-- Then, create a ranking of the top customers with most sales for each country. Filter the result to only the top 3 customers
+-- per country. 
+select * from
+(
+select 
+name, 
+country,
+sum(amount), 
+rank() over(partition by country order by sum(amount) desc) as rank 
+from customer_list
+left join payment 
+on id = customer_id
+group by name, 
+country) a
+where rank in(1,2,3);
+
+-- FIRST_VALUE()
+-- =============
+
+-- LEAD and LAG
+-- ===========
+
+select 
+name, 
+country,
+count(*),
+lead(name) over(partition by country order by count(*) asc)
+from customer_list
+left join payment 
+on id = customer_id
+group by name, 
+country;
+
+-- Write a query that returns the revenue of the day and the revenue of the previous day
+-- Then calculate the percentage growth compared to the previous day
+
+select sum(amount), 
+date(payment_date) as day
+from payment 
+group by date(payment_date);
+
+select sum(amount), 
+date(payment_date) as day,
+lag(sum(amount)) over(order by date(payment_date)) as previous_day,
+( sum(amount) - lag(sum(amount)) over(order by date(payment_date)) ) as diff,
+(round(( sum(amount) - lag(sum(amount)) over(order by date(payment_date)) ) / ( lag(sum(amount)) over(order by date(payment_date)) ),2)) * 100 as percentage_growth
+from payment 
+group by date(payment_date);
