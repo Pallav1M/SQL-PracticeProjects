@@ -196,5 +196,18 @@ GROUP BY fare_conditions, passenger_name;
 
 -- See the movie database for more challenges on multiple joins 
 
+-- OVER() with ORDER BY()
+-- =====================
 
+-- Write a query that returns the running total of how late the flights are (difference between actual arrival and 
+-- scheduled arrival) ordered by flight_id including the departure airport. 
+-- As a second query, calculate the same running total but partition also by the departure airport. 
+
+select flight_id, 
+departure_airport,
+sum(actual_arrival - scheduled_arrival)
+over(partition by departure_airport order by flight_id)
+from flights;
+
+-- Go to the movie database for the next section - RANK()
 
